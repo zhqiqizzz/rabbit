@@ -1,3 +1,3 @@
 <template>
-    <div>我是主页</div>
+    <div class="container" style="height: 1200px;">我是主页</div>
 </template>
