@@ -1,8 +1,13 @@
 import httpInstance from "@/utils/http";
 // 获取首页轮播图
-export function getBannerApi() {
+export function getBannerApi(params = {}) {
+  // distributionSite: 1 代表首页轮播图 2 代表分类轮播图
+  const { distributionSite = "1" } = params;
   return httpInstance({
     url: "/home/banner",
+    params: {
+      distributionSite,
+    },
   });
 }
 
