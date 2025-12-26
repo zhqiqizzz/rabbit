@@ -1,6 +1,11 @@
 <script setup>
     import { useScroll } from '@vueuse/core'
     import {useCategoryStore} from '@/stores/category.js'
+    import { computed } from 'vue'
+    import { useRoute } from 'vue-router'
+    // 计算当前激活的分类ID
+    const route = useRoute()
+    const activeId = computed(() => route.query.parentId || route.params.id)
     const categoryStore = useCategoryStore()
     const { y } = useScroll(window)
 </script> 
@@ -12,7 +17,7 @@
       <!-- 导航区域 -->
       <ul class="app-header-nav ">
         <li class="home" v-for="item in categoryStore.categoryList" :key="item.id">
-          <RouterLink to="/">{{ item.name }}</RouterLink>
+          <RouterLink :class="{ active: activeId === item.id }" :to="`/category/${item.id}`">{{ item.name }}</RouterLink>
         </li>
       </ul>
 

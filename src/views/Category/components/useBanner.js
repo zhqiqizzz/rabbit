@@ -1,9 +1,7 @@
-import { defineStore } from "pinia";
 import { getBannerApi } from "@/apis/home";
 import { onMounted, ref } from "vue";
 
-// 获取轮播图数据
-export const userBannerStore = defineStore("banner", () => {
+export function useBanner() {
   const bannerList = ref([]);
   const getBanner = async () => {
     const res = await getBannerApi({
@@ -12,8 +10,11 @@ export const userBannerStore = defineStore("banner", () => {
     bannerList.value = res.result;
   };
 
+  onMounted(() => {
+    getBanner();
+  });
+
   return {
     bannerList,
-    getBanner,
   };
-});
+}

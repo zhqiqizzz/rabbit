@@ -1,6 +1,12 @@
 <script setup>
   import { useCategoryStore } from '@/stores/category.js';
+  import { useRoute } from 'vue-router';
+  import { computed } from 'vue';
   const categoryStore = useCategoryStore();
+
+  // 计算当前激活的分类ID
+  const route = useRoute();
+  const activeId = computed(() => route.query.parentId || route.params.id);
 </script>
 
 <template>
@@ -11,7 +17,7 @@
       </h1>
       <ul class="app-header-nav">
         <li class="home" v-for="item in categoryStore.categoryList" :key = "item.id">
-          <RouterLink active-class="active" :to="`/category/${item.id}`">{{ item.name }}</RouterLink>
+          <RouterLink :class="{ active: activeId===item.id }" :to="`/category/${item.id}`">{{ item.name }}</RouterLink>
         </li>
       </ul>
       <div class="search">

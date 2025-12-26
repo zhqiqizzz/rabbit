@@ -1,10 +1,11 @@
 <script setup>
-import { userBannerStore } from '@/stores/banner.js'
+import { useBanner } from './components/useBanner';
 import GoodsItem from '@/views/Home/components/GoodsItem.vue'
 import CategoryBanner from '@/views/Category/components/CategoryBanner.vue'
 import { useCategory } from '@/views/Category/components/useCategory.js';
+
 // 获取轮播图数据
-const bannerStore = userBannerStore()
+const {bannerList} = useBanner()
 
 // 获取一级分类数据
 const { categoryData } = useCategory()
@@ -22,13 +23,13 @@ const { categoryData } = useCategory()
         </el-breadcrumb>
       </div>
       <!-- 轮播图 -->
-      <CategoryBanner :bannerList="bannerStore.bannerList" />
+      <CategoryBanner :bannerList="bannerList" />
       <!-- 子分类列表 -->
       <div class="sub-list">
         <h3>全部分类</h3>
         <ul>
             <li v-for="i in categoryData.children" :key="i.id">
-                <RouterLink to="/">
+                <RouterLink :to="`/category/sub/${i.id}?parentId=${categoryData.id}`">
                     <img :src="i.picture" />
                     <p>{{ i.name }}</p>
                 </RouterLink>

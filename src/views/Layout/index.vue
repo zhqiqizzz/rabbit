@@ -4,16 +4,11 @@
     import LayoutFooter from '@/views/Layout/components/LayoutFooter.vue'
     import LayoutFixed from './components/LayoutFixed.vue';
     import {useCategoryStore} from '@/stores/category.js';
-    import { userBannerStore } from '@/stores/banner.js';
     import { onMounted } from 'vue';
 
     // 父组件获取分类数据，传递给子组件
     const categoryStore = useCategoryStore()
     onMounted(() => categoryStore.getCategory())
-
-    // 父组件获取轮播图数据，传递给子组件
-    const bannerStore = userBannerStore()
-    onMounted(() => bannerStore.getBanner()) 
 </script>
 <template>
     <LayoutNav />
