@@ -3,12 +3,14 @@ import { getDetail } from '@/apis/detail';
 import { ref, onMounted } from 'vue';
 import { useRoute } from 'vue-router';
 import DetailHot from '@/views/Detail/components/DetailHot.vue';
-import ImageView from '@/components/ImageView/index.vue'; 
 const route = useRoute();
 const goods = ref({});
 const getGoods = async () => {
   const res = await getDetail(route.params.id);
   goods.value = res.result;
+};
+const handleSku = (sku) => {
+  console.log(sku);
 };
 onMounted(() => {
   getGoods();
@@ -93,7 +95,7 @@ onMounted(() => {
                 </dl>
               </div>
               <!-- sku组件 -->
-
+              <Sku :goods="goods" v-if="goods.skus" @changeSku="handleSku"/>
               <!-- 数据组件 -->
 
               <!-- 按钮组件 -->
