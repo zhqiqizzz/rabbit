@@ -2,6 +2,7 @@
   import { useCategoryStore } from '@/stores/category.js';
   import { useRoute } from 'vue-router';
   import { computed } from 'vue';
+  import LayoutCart from '@/views/Layout/components/LayoutCart.vue';
   const categoryStore = useCategoryStore();
 
   // 计算当前激活的分类ID
@@ -25,7 +26,7 @@
         <input type="text" placeholder="搜一搜">
       </div>
       <!-- 头部购物车 -->
-      
+      <LayoutCart />
     </div>
   </header>
 </template>
