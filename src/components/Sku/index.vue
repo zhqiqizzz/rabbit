@@ -1,6 +1,6 @@
 <script setup>
 import bwPowerSet from '@/components/Sku/power-map.js'
-import { onMounted } from 'vue'
+import { watch } from 'vue'
 // 商品数据
 const props = defineProps({
   goods: {
@@ -48,11 +48,7 @@ const changeSelectedStatus = (item, val) => {
   }
 }
 
-onMounted(()=> {
-  // 生成路径映射表
-  pathMap = getPathMap(props.goods)
-  initDisabledStatue(props.goods.specs, pathMap)
-})
+// 生成路径映射表
 const getPathMap = (goods) => {
   const pathMap = {}
   // 1. 根据skus字段, 生成有效的sku数组
@@ -128,6 +124,21 @@ const updateDisabledStatus = (specs, pathMap) => {
     })
   })
 }
+
+// 初始化 SKU
+const initSku = () => {
+  if (props.goods.skus) {
+    pathMap = getPathMap(props.goods)
+    initDisabledStatue(props.goods.specs, pathMap)
+  }
+}
+
+// 监听 goods 变化
+watch(
+  () => props.goods,
+  () => initSku(),
+  { immediate: true }
+)
 </script>
 
 <template>

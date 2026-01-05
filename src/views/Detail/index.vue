@@ -1,6 +1,6 @@
 <script setup>
 import { getDetail } from '@/apis/detail';
-import { ref, onMounted } from 'vue';
+import { ref, watch } from 'vue';
 import { useRoute } from 'vue-router';
 import DetailHot from '@/views/Detail/components/DetailHot.vue';
 import { useCartStore } from '@/stores/cart';
@@ -14,9 +14,9 @@ const getGoods = async () => {
 };
 
 // 引入sku组件
-let skuObj = ref({});
+const skuObj = ref({});
 const handleSku = (sku) => {
-  skuObj = sku;
+  skuObj.value = sku;
 };
 
 // 购物车相关
@@ -27,28 +27,35 @@ const countChange = (goodCount) => {
 };
 
 const addToCart = () => {
-  if(skuObj.skuId) {
+  if(skuObj.value.skuId) {
     const item = goods.value.skus.find((item) => {
-      return item.id === skuObj.skuId;
+      return item.id === skuObj.value.skuId;
     });
     cartStore.addCart({
       id: goods.value.id,
       name: goods.value.name,
-      picture: item.picture,
+      picture: item.picture || goods.value.mainPictures[0],
       price: goods.value.price,
       count: goodCount.value,
-      skuId: skuObj.skuId,
-      attrsText: skuObj.specsText,
+      skuId: skuObj.value.skuId,
+      attrsText: skuObj.value.specsText,
       selected: true
     })
+    goodCount.value = 1;
   } else {
     ElMessage.warning('请选择商品规格');
   }
 }
 
-onMounted(() => {
-  getGoods();
-});
+watch(
+  () => route.params.id,
+  () => {
+    getGoods();
+    skuObj.value = {};
+    goodCount.value = 1;
+  },
+  { immediate: true }
+)
 </script>
 
 <template>
