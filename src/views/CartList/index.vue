@@ -11,6 +11,16 @@ const singleSelect = (i, newSelected) => {
 const allSelected = (selected) => {
     cartStore.allSelected(selected);
 }
+// 下单结算选中的商品
+const goCheckout = () => {
+  if (cartStore.selectedCount === 0) {
+    // 如果没有选中商品，提示用户选择商品
+    ElMessage.warning('请先选择结算商品');
+    return;
+  } else {
+    router.push('/checkout');
+  }
+}
 </script>
 
 <template>
@@ -91,7 +101,7 @@ const allSelected = (selected) => {
           <span class="red">¥ {{ cartStore.selectedPrice.toFixed(2) }} </span>
         </div>
         <div class="total">
-          <el-button size="large" type="primary" >下单结算</el-button>
+          <el-button @click="goCheckout" size="large" type="primary" >下单结算</el-button>
         </div>
       </div>
     </div>
