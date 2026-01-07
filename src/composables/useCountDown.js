@@ -5,16 +5,24 @@ export const useCountDown = () => {
   let timer = null;
   const formatTime = computed(() => dayjs.unix(time.value).format("mm分ss秒"));
   const start = (startTime) => {
+    if (timer) {
+      clearInterval(timer);
+      timer = null;
+    }
     time.value = startTime;
     timer = setInterval(() => {
       time.value--;
     }, 1000);
   };
-  onUnmounted(() => {
-    timer && clearInterval(timer);
-  });
+  const stop = () => {
+    if (timer) {
+      clearInterval(timer);
+      timer = null;
+    }
+  };
   return {
     formatTime,
     start,
+    stop,
   };
 };

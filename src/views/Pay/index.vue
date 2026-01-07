@@ -1,9 +1,9 @@
 <script setup>
-import { onMounted, ref } from 'vue';
+import { onMounted, onUnmounted, ref } from 'vue';
 import { getPayInfoApi } from '@/apis/pay';
 import { useRoute } from 'vue-router';
 import { useCountDown } from '@/composables/useCountDown';
-const { formatTime, start } = useCountDown()
+const { formatTime, start, stop } = useCountDown()
 const route = useRoute()
 const orderId = route.query.orderId
 const payInfo = ref({})
@@ -22,6 +22,9 @@ const payUrl = `${baseURL}pay/aliPay?orderId=${orderId}&redirect=${redirectUrl}`
 // 密码 111111
 onMounted(() =>{
   getPayInfo()
+})
+onUnmounted(() => {
+  stop()
 })
 </script>
 

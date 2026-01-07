@@ -1,14 +1,17 @@
 <script setup>
-import { onMounted, ref } from 'vue';
+import { onMounted, ref, computed } from 'vue';
 import { getCheckoutInfoApi, createOrderApi } from '@/apis/checkout';
 import { useRouter } from 'vue-router';
 import { useCartStore } from '@/stores/cart';
+import { addAddressApi, editAddressApi } from '@/apis/address';
+import { ElMessage } from 'element-plus';
 const cartStore = useCartStore()
 const router = useRouter()
 
 const checkInfo = ref({})  // 订单对象
 const curAddress = ref({})  // 地址对象
 const activeAddress = ref({})  // 当前选中的地址对象
+const defaultAddress = ref({})  // 默认地址对象
 const showDialog = ref(false)
 const addDialog = ref(false)
 
@@ -17,12 +20,17 @@ const getCheckoutInfo = async () => {
     const res = await getCheckoutInfoApi()
     checkInfo.value = res.result
     curAddress.value = res.result.userAddresses.find((i) => !i.isDefault)
+    defaultAddress.value = curAddress.value
     activeAddress.value = curAddress.value    
 }
 
 // 切换地址
 const switchAddress = (item) => {
     activeAddress.value = item
+}
+const cancelAddress = () => {
+    showDialog.value = false
+    activeAddress.value = curAddress.value
 }
 const confirmAddress = () => {
     curAddress.value = activeAddress.value
@@ -55,6 +63,76 @@ const createOrder = async () => {
     })
     // 更新购物车
     cartStore.updateCartList()
+}
+
+// 添加地址
+const locationOptions = ['家', '公司', '学校', '父母', '朋友', '其他'];
+const addressForm = ref({
+    receiver: '',
+    contact: '',
+    provinceCode: '',
+    cityCode: '',
+    countyCode: '',
+    address: '',
+    postalCode: '',
+    addressTags: '',
+    isDefault: 1
+});
+const addressRules = {
+  receiver: [
+    { required: true, message: '收货人不能为空', trigger: 'blur' },
+  ],
+  contact: [
+    { required: true, message: '联系方式不能为空', trigger: 'blur' },
+  ],
+  provinceCode: [
+    { required: true, message: '省份不能为空', trigger: 'blur' },
+  ],
+  cityCode: [
+    { required: true, message: '城市不能为空', trigger: 'blur' },
+  ],
+  countyCode: [
+    { required: true, message: '区县不能为空', trigger: 'blur' },
+  ],
+  address: [
+    { required: true, message: '详细地址不能为空', trigger: 'blur' },
+  ],
+  postalCode: [
+    { required: true, message: '邮政编码不能为空', trigger: 'blur' },
+  ],
+  addressTags: [
+    { required: true, message: '地址标签不能为空', trigger: 'change' },
+  ],
+}
+const fullLocation = computed(() => {
+    return addressForm.value?.provinceCode + addressForm.value?.cityCode + addressForm.value?.countyCode + addressForm.value?.address;
+});
+const addressFormRef = ref(null);
+const addAddress = async () => {
+    if(!addressFormRef.value) return;
+    try {
+        await addressFormRef.value.validate();
+        await addAddressApi({...addressForm.value, fullLocation: fullLocation.value });
+        ElMessage({
+            type: 'success',
+            message: '地址添加成功'
+        })
+        if(!addressForm.value.isDefault) {
+            await editAddressApi(defaultAddress.value.id, {...defaultAddress.value, isDefault: 1})
+        }
+        await getCheckoutInfo()
+        addDialog.value = false;
+        addressFormRef.value.resetFields();
+    } catch (error) {
+        return;
+    }
+}
+const cancelAddAddress = () => {
+    addDialog.value = false;
+    addressFormRef.value.resetFields();
+}
+const defaultChange = (val) => {
+    addressForm.value.isDefault = val ? 0 : 1;
 }
 onMounted(() => {
     getCheckoutInfo()
@@ -97,7 +175,7 @@ onMounted(() => {
               </tr>
             </thead>
             <tbody>
-              <tr v-for="i in checkInfo.goods" :key="i.id">
+              <tr v-for="i in checkInfo.goods" :key="i.skuId">
                 <td>
                   <RouterLink :to="`/detail/${i.id}`" class="info">
                     <img :src="i.picture" alt="">
@@ -171,12 +249,51 @@ onMounted(() => {
     </div>
     <template #footer>
         <span class="dialog-footer">
-            <el-button @click="showDialog = false">取消</el-button>
+            <el-button @click="cancelAddress">取消</el-button>
             <el-button @click="confirmAddress" type="primary">确定</el-button>
         </span>
     </template>
   </el-dialog>
   <!-- 添加地址 -->
+   <el-dialog center v-model="addDialog" title="编辑收货地址" width="30%">
+    <div class="addressWrapper">
+        <el-form :rules="addressRules" ref="addressFormRef" :model="addressForm">
+            <el-form-item label="收 货 人：" prop="receiver">
+                <el-input v-model="addressForm.receiver" placeholder="请输入收货人姓名"></el-input>
+            </el-form-item>
+            <el-form-item label="联系方式：" prop="contact">
+                <el-input v-model="addressForm.contact" placeholder="请输入收货人联系方式"></el-input>
+            </el-form-item>
+            <el-form-item label="省份：" prop="provinceCode">
+                <el-input v-model="addressForm.provinceCode" placeholder="请输入收货人省份"></el-input>
+            </el-form-item>
+            <el-form-item label="城市：" prop="cityCode">
+                <el-input v-model="addressForm.cityCode" placeholder="请输入收货人城市"></el-input>
+            </el-form-item>
+            <el-form-item label="区县：" prop="countyCode">
+                <el-input v-model="addressForm.countyCode" placeholder="请输入收货人区县"></el-input>
+            </el-form-item>
+            <el-form-item label="详细地址：" prop="address">
+                <el-input v-model="addressForm.address" placeholder="请输入收货人详细地址"></el-input>
+            </el-form-item>
+            <el-form-item label="邮政编码：" prop="postalCode">
+                <el-input v-model="addressForm.postalCode" placeholder="请输入收货人邮政编码"></el-input>
+            </el-form-item>
+            <el-form-item label="地址标签" prop="addressTags">
+                <el-segmented v-model="addressForm.addressTags" :options="locationOptions" />
+            </el-form-item>
+            <el-form-item label="默认地址" prop="isDefault">
+                <el-checkbox @change="defaultChange"></el-checkbox>
+            </el-form-item>
+        </el-form>
+    </div>
+    <template #footer>
+        <span class="dialog-footer">
+            <el-button @click="cancelAddAddress">取消</el-button>
+            <el-button @click="addAddress" type="primary">确定</el-button>
+        </span>
+    </template>
+   </el-dialog>
 </template>
 
 <style scoped lang="scss">

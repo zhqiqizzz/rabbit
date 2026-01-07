@@ -5,7 +5,7 @@ import { useUserStore } from "@/stores/user";
 import router from "@/router";
 const httpInstance = axios.create({
   baseURL: "http://pcapi-xiaotuxian-front-devtest.itheima.net",
-  timeout: 5000,
+  timeout: 10000,
 });
 
 // axios请求拦截器
@@ -29,10 +29,10 @@ httpInstance.interceptors.response.use(
     const userStore = useUserStore();
     ElMessage({
       type: "warning",
-      message: e.response.data.message,
+      message: e?.response?.data?.message,
     });
     // 401 状态码 退出登录 跳转到登录页
-    if (e.response.status === 401) {
+    if (e?.response?.status === 401) {
       userStore.clearUserInfo();
       router.push("/login");
     }
