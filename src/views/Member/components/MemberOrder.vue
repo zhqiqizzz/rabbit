@@ -74,7 +74,7 @@ onUnmounted(() => {
               <!-- 未付款，倒计时时间还有 -->
               <span class="down-time" v-if="order.orderState === 1">
                 <i class="iconfont icon-down-time"></i>
-                <b v-if="order.countdown === -1">付款已截止</b>
+                <b v-if="order.countdown === -1 || order.timer.time <= 0">付款已截止</b>
                 <b v-else>付款截止: {{order.timer.formatTime}}</b>
               </span>
             </div>

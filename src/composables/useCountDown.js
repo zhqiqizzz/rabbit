@@ -24,5 +24,6 @@ export const useCountDown = () => {
     formatTime,
     start,
     stop,
+    time,
   };
 };

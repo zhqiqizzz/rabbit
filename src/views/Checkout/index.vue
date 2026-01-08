@@ -3,8 +3,9 @@ import { onMounted, ref, computed } from 'vue';
 import { getCheckoutInfoApi, createOrderApi } from '@/apis/checkout';
 import { useRouter } from 'vue-router';
 import { useCartStore } from '@/stores/cart';
-import { addAddressApi, editAddressApi } from '@/apis/address';
+import { addAddressApi, editAddressApi, delAddressApi } from '@/apis/address';
 import { ElMessage } from 'element-plus';
+import { regionData } from 'element-china-area-data'; 
 const cartStore = useCartStore()
 const router = useRouter()
 
@@ -19,9 +20,9 @@ const getCheckoutInfo = async () => {
     // 调用接口获取订单信息
     const res = await getCheckoutInfoApi()
     checkInfo.value = res.result
-    curAddress.value = res.result.userAddresses.find((i) => !i.isDefault)
-    defaultAddress.value = curAddress.value
-    activeAddress.value = curAddress.value    
+    defaultAddress.value = res.result.userAddresses.find((i) => !i.isDefault)
+    curAddress.value =defaultAddress.value || res.result?.userAddresses[0]
+    activeAddress.value = curAddress.value
 }
 
 // 切换地址
@@ -40,6 +41,13 @@ const confirmAddress = () => {
 
 // 提交订单
 const createOrder = async () => {
+    if(!curAddress.value.id) {
+        ElMessage({
+            type: 'warning',
+            message: '请先选择收货地址'
+        })
+        return;
+    }
     const res = await createOrderApi({
         deliveryTimeType: 1,
         payType: 1,
@@ -73,11 +81,14 @@ const addressForm = ref({
     provinceCode: '',
     cityCode: '',
     countyCode: '',
+    fullLocation: '',
     address: '',
     postalCode: '',
     addressTags: '',
-    isDefault: 1
+    isDefault: 1,
+    region: []
 });
+
 const addressRules = {
   receiver: [
     { required: true, message: '收货人不能为空', trigger: 'blur' },
@@ -85,14 +96,8 @@ const addressRules = {
   contact: [
     { required: true, message: '联系方式不能为空', trigger: 'blur' },
   ],
-  provinceCode: [
-    { required: true, message: '省份不能为空', trigger: 'blur' },
-  ],
-  cityCode: [
-    { required: true, message: '城市不能为空', trigger: 'blur' },
-  ],
-  countyCode: [
-    { required: true, message: '区县不能为空', trigger: 'blur' },
+  region: [
+    { type: 'array', required: true, message: '省市区不能为空', trigger: 'change' },
   ],
   address: [
     { required: true, message: '详细地址不能为空', trigger: 'blur' },
@@ -102,27 +107,87 @@ const addressRules = {
   ],
   addressTags: [
     { required: true, message: '地址标签不能为空', trigger: 'change' },
-  ],
+  ]
 }
-const fullLocation = computed(() => {
-    return addressForm.value?.provinceCode + addressForm.value?.cityCode + addressForm.value?.countyCode + addressForm.value?.address;
-});
+
 const addressFormRef = ref(null);
-const addAddress = async () => {
+const addressCascaderRef = ref(null);
+// 省市区级联配置（仅选择编码）
+const cascaderProps = {
+    options: regionData, // 省-市-区三级
+    label: 'label',
+    value: 'value', // 选择后返回编码（如['110000', ...])
+    expandTrigger: 'click',
+};
+
+const regionChang = (value) => {
+    console.log(value);
+    if(value && value.length === 3) {
+        addressForm.value.provinceCode = value[0];
+        addressForm.value.cityCode = value[1];
+        addressForm.value.countyCode = value[2];
+        // 拼接 fullLocation
+        if (addressCascaderRef.value) {
+            const checkedNodes = addressCascaderRef.value.getCheckedNodes();
+            if (checkedNodes && checkedNodes.length > 0) {
+                // checkedNodes[0] 是当前选中的节点对象
+                // pathLabels 是一个数组，例如 ['广东省', '广州市', '天河区']
+                const labels = checkedNodes[0].pathLabels;
+                // 使用空格拼接成字符串
+                addressForm.value.fullLocation = labels.join(' '); 
+            }
+        }
+    } else {
+        addressForm.value.fullLocation = '';
+        addressForm.value.provinceCode = '';
+        addressForm.value.cityCode = '';
+        addressForm.value.countyCode = '';
+    }
+}
+
+const openAddDialog = () => {
+    addDialog.value = true;
+    addressForm.value = {
+        receiver: '',
+        contact: '',
+        provinceCode: '',
+        cityCode: '',
+        countyCode: '',
+        fullLocation: '',
+        address: '',
+        postalCode: '',
+        addressTags: '',
+        isDefault: 1,
+        region: []
+    };
+    if(addressFormRef.value) {
+        addressFormRef.value.resetFields();
+    }
+}
+
+const updateAddress = async () => {
     if(!addressFormRef.value) return;
     try {
         await addressFormRef.value.validate();
-        await addAddressApi({...addressForm.value, fullLocation: fullLocation.value });
-        ElMessage({
+        // 提交的参数
+        const submitData = {...addressForm.value}
+        delete submitData.region;
+        // 判断是添加还是编辑
+        if(addressForm.value.id) {
+          await editAddressApi(addressForm.value.id, submitData);
+          ElMessage({
             type: 'success',
-            message: '地址添加成功'
-        })
-        if(!addressForm.value.isDefault) {
-            await editAddressApi(defaultAddress.value.id, {...defaultAddress.value, isDefault: 1})
+            message: '地址修改成功'
+          })
+        } else{
+            await addAddressApi(submitData);
+            ElMessage({
+                type: 'success',
+                message: '地址添加成功'
+            })
         }
+        addDialog.value = false
         await getCheckoutInfo()
-        addDialog.value = false;
-        addressFormRef.value.resetFields();
     } catch (error) {
         return;
     }
@@ -130,9 +195,38 @@ const addAddress = async () => {
 const cancelAddAddress = () => {
     addDialog.value = false;
     addressFormRef.value.resetFields();
+    addressForm.value.region = [];   
 }
-const defaultChange = (val) => {
-    addressForm.value.isDefault = val ? 0 : 1;
+
+// 删除地址
+const deleteAddress = async (id) => {
+    try{
+        const preCurId = curAddress.value.id
+        await delAddressApi(id)
+        ElMessage({
+            type: 'success',
+            message: '地址删除成功'
+        })
+        await getCheckoutInfo()
+        if(id === preCurId) {
+            curAddress.value = defaultAddress.value || checkInfo.value?.userAddresses[0]
+        }
+    } catch (error) {
+        return;
+    }
+}
+
+const editClose = () => {
+    activeAddress.value = curAddress.value
+}
+const addClose = () => {
+    addressFormRef.value.resetFields();
+}
+
+// 编辑地址
+const editAddress = (item) => {
+    addDialog.value = true;
+    addressForm.value = { ...item, region: [item.provinceCode, item.cityCode, item.countyCode] };
 }
 onMounted(() => {
     getCheckoutInfo()
@@ -156,8 +250,8 @@ onMounted(() => {
               </ul>
             </div>
             <div class="action">
-              <el-button size="large" @click="showDialog = true">切换地址</el-button>
-              <el-button size="large" @click="addDialog = true">添加地址</el-button>
+              <el-button size="large" @click="showDialog = true">管理地址</el-button>
+              <el-button size="large" @click="openAddDialog">添加地址</el-button>
             </div>
           </div>
         </div>
@@ -236,15 +330,23 @@ onMounted(() => {
       </div>
     </div>
   </div>
-  <!-- 切换地址 -->
-  <el-dialog v-model="showDialog" title="切换收货地址" width="30%" center>
+  <!-- 管理地址 -->
+  <el-dialog @close="editClose" v-model="showDialog" title="管理收货地址" width="30%" center>
     <div class="addressWrapper">
-        <div class="text item" :class="{active : item.id === activeAddress.id}" @click="switchAddress(item)" v-for="item in checkInfo.userAddresses"  :key="item.id">
+        <div class="text item" :class="{active : item.id === activeAddress?.id}" @click="switchAddress(item)" v-for="item in checkInfo.userAddresses"  :key="item.id">
             <ul>
             <li><span>收货人：</span>{{ item.receiver }} </li>
             <li><span>联系方式：</span>{{ item.contact }}</li>
             <li><span>收货地址：</span>{{ item.fullLocation + item.address }}</li>
             </ul>
+            <div item-actions style="display:flex; flex-direction:column; gap:8px; align-items:flex-end; margin-left: auto; ">
+            <el-popconfirm @confirm="deleteAddress(item.id)" width="220" title="确定要删除该地址吗？">
+                <template #reference>
+                    <el-button @confirm="deleteAddress(item.id)" style="color:#f56c6c;">删除</el-button>
+                </template>
+            </el-popconfirm>
+            <el-button @click="editAddress(item)">编辑</el-button>
+            </div>
         </div>
     </div>
     <template #footer>
@@ -255,7 +357,7 @@ onMounted(() => {
     </template>
   </el-dialog>
   <!-- 添加地址 -->
-   <el-dialog center v-model="addDialog" title="编辑收货地址" width="30%">
+   <el-dialog @close="addClose" center v-model="addDialog" title="编辑收货地址" width="30%">
     <div class="addressWrapper">
         <el-form :rules="addressRules" ref="addressFormRef" :model="addressForm">
             <el-form-item label="收 货 人：" prop="receiver">
@@ -264,14 +366,16 @@ onMounted(() => {
             <el-form-item label="联系方式：" prop="contact">
                 <el-input v-model="addressForm.contact" placeholder="请输入收货人联系方式"></el-input>
             </el-form-item>
-            <el-form-item label="省份：" prop="provinceCode">
-                <el-input v-model="addressForm.provinceCode" placeholder="请输入收货人省份"></el-input>
-            </el-form-item>
-            <el-form-item label="城市：" prop="cityCode">
-                <el-input v-model="addressForm.cityCode" placeholder="请输入收货人城市"></el-input>
-            </el-form-item>
-            <el-form-item label="区县：" prop="countyCode">
-                <el-input v-model="addressForm.countyCode" placeholder="请输入收货人区县"></el-input>
+            <el-form-item label="省市区(县): " prop="region">
+                <el-cascader
+                    ref="addressCascaderRef"
+                    v-model="addressForm.region"
+                    :options="cascaderProps.options"
+                    :props="cascaderProps"
+                    clearable
+                    @change="regionChang"
+                    placeholder="请选择收货人地区"
+                />
             </el-form-item>
             <el-form-item label="详细地址：" prop="address">
                 <el-input v-model="addressForm.address" placeholder="请输入收货人详细地址"></el-input>
@@ -279,18 +383,18 @@ onMounted(() => {
             <el-form-item label="邮政编码：" prop="postalCode">
                 <el-input v-model="addressForm.postalCode" placeholder="请输入收货人邮政编码"></el-input>
             </el-form-item>
-            <el-form-item label="地址标签" prop="addressTags">
+            <el-form-item label="地址标签：" prop="addressTags">
                 <el-segmented v-model="addressForm.addressTags" :options="locationOptions" />
             </el-form-item>
-            <el-form-item label="默认地址" prop="isDefault">
-                <el-checkbox @change="defaultChange"></el-checkbox>
+            <el-form-item label="默认地址：" prop="isDefault">
+                <el-checkbox v-model="addressForm.isDefault" :true-value="0" :false-value="1"></el-checkbox>
             </el-form-item>
         </el-form>
     </div>
     <template #footer>
         <span class="dialog-footer">
             <el-button @click="cancelAddAddress">取消</el-button>
-            <el-button @click="addAddress" type="primary">确定</el-button>
+            <el-button @click="updateAddress" type="primary">确定</el-button>
         </span>
     </template>
    </el-dialog>
