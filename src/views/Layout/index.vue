@@ -3,6 +3,7 @@
     import LayoutHeader from '@/views/Layout/components/LayoutHeader.vue'
     import LayoutFooter from '@/views/Layout/components/LayoutFooter.vue'
     import LayoutFixed from './components/LayoutFixed.vue';
+    import AIGuidePanel from '@/components/AIGuidePanel.vue';
     import {useCategoryStore} from '@/stores/category.js';
     import { onMounted } from 'vue';
 
@@ -17,5 +18,6 @@
     <!-- 这里是Home、Category、Detail等页面 -->
      <!-- <RouterView :key="$route.fullPath"/> -->
     <RouterView />
+    <AIGuidePanel />
     <LayoutFooter />
 </template>
