@@ -1,68 +1,143 @@
-<script setup>
-import { ElMessage } from 'element-plus'
-import 'element-plus/es/components/message/style/css'
-import { ref } from 'vue'
-import { useRouter } from 'vue-router'
-import { useUserStore } from '@/stores/user'
+﻿<script setup>
+import { ElMessage } from "element-plus";
+import "element-plus/es/components/message/style/css";
+import { ref } from "vue";
+import { useRouter } from "vue-router";
+import { useUserStore } from "@/stores/user";
+import SlideVerify from "vue3-slide-verify";
+import "vue3-slide-verify/dist/style.css";
+import VerifyCode from "@/components/VerifyCode.vue";
+
 const userStore = useUserStore();
 const router = useRouter();
+const loginFormRef = ref(null);
+const verifyCodeRef = ref(null);
+const sliderVerifyRef = ref(null);
+const currentCaptcha = ref("");
+
 const loginForm = ref({
-  account: '',
-  password: '',
-  privacyAgree: true
+  account: "",
+  password: "",
+  captcha: "",
+  sliderVerified: false,
+  privacyAgree: true,
 });
-// pattern：正则表达式，用于格式匹配；
-// message：校验失败时的提示信息；
-// trigger：校验触发时机（blur 失去焦点、change 值变化、submit 提交时）；
-// required：是否为必填项（true 表示必填）。
+
 const loginRules = {
   account: [
-    { required: true, message: '用户名不能为空', trigger: 'blur' },
-    { min: 3, max: 14, message: '用户名长度在3-14位之间', trigger: 'blur' },
-    { pattern: /^[a-zA-Z0-9_]+$/, message: '用户名只能包含字母、数字、下划线', trigger: 'blur' }
+    { required: true, message: "用户名不能为空", trigger: "blur" },
+    { min: 3, max: 14, message: "用户名长度在 3 到 14 位之间", trigger: "blur" },
+    {
+      pattern: /^[a-zA-Z0-9_]+$/,
+      message: "用户名只能包含字母、数字和下划线",
+      trigger: "blur",
+    },
   ],
   password: [
-    { required: true, message: '密码不能为空', trigger: 'blur' },
-    { min: 6, max: 14, message: '密码长度在6-14位之间', trigger: 'blur' },
-    { pattern: /^[a-zA-Z0-9!@#$%^&*()_+\-=]+$/, message: '密码只能包含字母、数字和常见特殊字符', trigger: 'blur' }
+    { required: true, message: "密码不能为空", trigger: "blur" },
+    { min: 6, max: 14, message: "密码长度在 6 到 14 位之间", trigger: "blur" },
+    {
+      pattern: /^[a-zA-Z0-9!@#$%^&*()_+\-=]+$/,
+      message: "密码只能包含字母、数字和常见特殊字符",
+      trigger: "blur",
+    },
+  ],
+  captcha: [
+    { required: true, message: "请输入图形验证码", trigger: "blur" },
+    {
+      validator: (rule, value, callback) => {
+        if (!value) {
+          callback(new Error("请输入图形验证码"));
+          return;
+        }
+        if (value.trim().toUpperCase() !== currentCaptcha.value) {
+          callback(new Error("图形验证码不正确"));
+          return;
+        }
+        callback();
+      },
+      trigger: "blur",
+    },
+  ],
+  sliderVerified: [
+    {
+      validator: (rule, value, callback) => {
+        if (value) {
+          callback();
+          return;
+        }
+        callback(new Error("请完成滑块验证"));
+      },
+      trigger: "change",
+    },
   ],
   privacyAgree: [
     {
-        // 自定义校验逻辑
-        validator: (rule, value, callback) => {
-            // 复选框未选中时，value 为 false
-            if(value === true){
-                callback();
-            } else {
-                callback(new Error('请阅读并同意隐私条款和服务条款'));
-            }
-        },
-        trigger: 'change'
-    }
-  ]
+      validator: (rule, value, callback) => {
+        if (value) {
+          callback();
+          return;
+        }
+        callback(new Error("请阅读并同意隐私条款和服务条款"));
+      },
+      trigger: "change",
+    },
+  ],
 };
 
-// 获取表单实例做统一校验
-const loginFormRef = ref(null)
-const doLogin = async () => {
-    if(!loginFormRef.value) return;
-    const { account, password } = loginForm.value;
-    try {
-      await loginFormRef.value.validate();
-      await userStore.getUserInfo({account, password});
-      ElMessage({
-          message: '登录成功',
-          type: 'success',
-      });
-      // 跳转到首页
-      router.replace({ path: '/' });
-    } catch (error) {
-      // 验证失败，阻止提交
-      return;
-    }
-}
-</script>
+const handleCaptchaChange = (code) => {
+  currentCaptcha.value = code;
+};
 
+const resetCaptcha = () => {
+  loginForm.value.captcha = "";
+  verifyCodeRef.value?.refreshCode();
+};
+
+const resetSlider = () => {
+  loginForm.value.sliderVerified = false;
+  sliderVerifyRef.value?.refresh();
+};
+
+const resetHumanVerification = () => {
+  resetCaptcha();
+  resetSlider();
+};
+
+const handleSliderSuccess = () => {
+  loginForm.value.sliderVerified = true;
+};
+
+const handleSliderFail = () => {
+  loginForm.value.sliderVerified = false;
+};
+
+const handleSliderRefresh = () => {
+  loginForm.value.sliderVerified = false;
+};
+
+const handleSliderAgain = () => {
+  loginForm.value.sliderVerified = false;
+  sliderVerifyRef.value?.refresh();
+};
+
+const doLogin = async () => {
+  if (!loginFormRef.value) return;
+
+  const { account, password } = loginForm.value;
+  try {
+    await loginFormRef.value.validate();
+    await userStore.getUserInfo({ account, password });
+    ElMessage({
+      message: "登录成功",
+      type: "success",
+    });
+    router.replace({ path: "/" });
+  } catch (error) {
+    resetHumanVerification();
+  }
+};
+</script>
 
 <template>
   <div>
@@ -85,13 +160,42 @@ const doLogin = async () => {
         </nav>
         <div class="account-box">
           <div class="form">
-            <el-form ref="loginFormRef" :model="loginForm" :rules="loginRules" label-position="right" 
-                label-width="60px" status-icon>
+            <el-form
+              ref="loginFormRef"
+              :model="loginForm"
+              :rules="loginRules"
+              label-position="right"
+              label-width="60px"
+              status-icon
+            >
               <el-form-item prop="account" label="账户">
-                <el-input v-model="loginForm.account"/>
+                <el-input v-model="loginForm.account" />
               </el-form-item>
               <el-form-item prop="password" label="密码">
-                <el-input v-model="loginForm.password"/>
+                <el-input v-model="loginForm.password" type="password" show-password />
+              </el-form-item>
+              <el-form-item prop="captcha" label="图码">
+                <VerifyCode
+                  ref="verifyCodeRef"
+                  v-model="loginForm.captcha"
+                  @change="handleCaptchaChange"
+                />
+              </el-form-item>
+              <el-form-item prop="sliderVerified" label="滑块" class="slider-form-item">
+                <SlideVerify
+                  ref="sliderVerifyRef"
+                  class="login-slider"
+                  slider-text="向右滑动完成验证"
+                  :w="320"
+                  :h="160"
+                  :l="38"
+                  :r="10"
+                  :accuracy="1"
+                  @success="handleSliderSuccess"
+                  @fail="handleSliderFail"
+                  @refresh="handleSliderRefresh"
+                  @again="handleSliderAgain"
+                />
               </el-form-item>
               <el-form-item label-width="22px" prop="privacyAgree">
                 <el-checkbox v-model="loginForm.privacyAgree" size="large">
@@ -122,7 +226,7 @@ const doLogin = async () => {
   </div>
 </template>
 
-<style scoped lang='scss'>
+<style scoped lang="scss">
 .login-header {
   background: #fff;
   border-bottom: 1px solid #e4e4e4;
@@ -168,36 +272,38 @@ const doLogin = async () => {
 }
 
 .login-section {
-  background: url('@/assets/images/login-bg.png') no-repeat center / cover;
-  height: 488px;
+  background: url("@/assets/images/login-bg.png") no-repeat center / cover;
+  min-height: 680px;
   position: relative;
+  padding: 54px 0 40px;
 
   .wrapper {
-    width: 380px;
+    width: 460px;
     background: #fff;
-    position: absolute;
-    left: 50%;
-    top: 54px;
-    transform: translate3d(100px, 0, 0);
+    position: relative;
+    margin-left: auto;
+    margin-right: calc(50% - 290px);
     box-shadow: 0 0 10px rgba(0, 0, 0, 0.15);
-
+    border-radius: 8px;
+    overflow: hidden;
+    margin-right: 200px;
     nav {
       font-size: 14px;
-      height: 55px;
-      margin-bottom: 20px;
+      height: 64px;
       border-bottom: 1px solid #f5f5f5;
       display: flex;
-      padding: 0 40px;
-      text-align: right;
+      padding: 0 48px;
       align-items: center;
 
       a {
         flex: 1;
         line-height: 1;
         display: inline-block;
-        font-size: 18px;
+        font-size: 30px;
+        font-weight: 500;
         position: relative;
         text-align: center;
+        color: #303133;
       }
     }
   }
@@ -218,7 +324,7 @@ const doLogin = async () => {
       color: #999;
       display: inline-block;
 
-      ~a {
+      ~ a {
         border-left: 1px solid #ccc;
       }
     }
@@ -240,112 +346,88 @@ const doLogin = async () => {
   }
 
   .form {
-    padding: 0 20px 20px 20px;
-
-    &-item {
-      margin-bottom: 28px;
-
-      .input {
-        position: relative;
-        height: 36px;
-
-        >i {
-          width: 34px;
-          height: 34px;
-          background: #cfcdcd;
-          color: #fff;
-          position: absolute;
-          left: 1px;
-          top: 1px;
-          text-align: center;
-          line-height: 34px;
-          font-size: 18px;
-        }
-
-        input {
-          padding-left: 44px;
-          border: 1px solid #cfcdcd;
-          height: 36px;
-          line-height: 36px;
-          width: 100%;
-
-          &.error {
-            border-color: $priceColor;
-          }
-
-          &.active,
-          &:focus {
-            border-color: $xtxColor;
-          }
-        }
-
-        .code {
-          position: absolute;
-          right: 1px;
-          top: 1px;
-          text-align: center;
-          line-height: 34px;
-          font-size: 14px;
-          background: #f5f5f5;
-          color: #666;
-          width: 90px;
-          height: 34px;
-          cursor: pointer;
-        }
-      }
-
-      >.error {
-        position: absolute;
-        font-size: 12px;
-        line-height: 28px;
-        color: $priceColor;
-
-        i {
-          font-size: 14px;
-          margin-right: 2px;
-        }
-      }
-    }
-
-    .agree {
-      a {
-        color: #069;
-      }
-    }
-
-    .btn {
-      display: block;
-      width: 100%;
-      height: 40px;
-      color: #fff;
-      text-align: center;
-      line-height: 40px;
-      background: $xtxColor;
-
-      &.disabled {
-        background: #cfcdcd;
-      }
-    }
+    padding: 28px 32px 28px 24px;
   }
+}
 
-  .action {
-    padding: 20px 40px;
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
+.account-box :deep(.el-form-item) {
+  margin-bottom: 22px;
+}
 
-    .url {
-      a {
-        color: #999;
-        margin-left: 10px;
-      }
-    }
-  }
+.account-box :deep(.el-form-item__label) {
+  font-size: 15px;
+  color: #606266;
+}
+
+.account-box :deep(.el-input__wrapper) {
+  min-height: 42px;
+}
+
+.account-box :deep(.el-form-item__content) {
+  line-height: normal;
+}
+
+.account-box :deep(.slider-form-item) {
+  align-items: flex-start;
+}
+
+.account-box :deep(.slider-form-item .el-form-item__label) {
+  padding-top: 12px;
+}
+
+.login-slider {
+  width: 320px;
+  max-width: 100%;
+}
+
+.account-box :deep(.login-slider .slide-verify) {
+  width: 320px;
+  max-width: 100%;
+  overflow: hidden;
+  border-radius: 6px;
+  background: #f8fafc;
+  position: relative;
+  isolation: isolate;
+  margin: 0 auto;
+}
+
+.account-box :deep(.login-slider .slide-verify-slider) {
+  margin-top: 12px;
+  border-radius: 4px;
+}
+
+.account-box :deep(.login-slider canvas) {
+  display: block;
+}
+
+.account-box :deep(.login-slider .slide-verify-refresh-icon) {
+  right: 8px;
+  top: 8px;
+  z-index: 2;
+}
+
+.account-box :deep(.login-slider .slide-verify-block) {
+  z-index: 1;
+}
+
+.account-box :deep(.login-slider .slide-verify-loading) {
+  border-radius: 6px;
+}
+
+.account-box :deep(.el-checkbox) {
+  align-items: flex-start;
+  white-space: normal;
+}
+
+.account-box :deep(.el-checkbox__label) {
+  line-height: 1.5;
 }
 
 .subBtn {
   background: $xtxColor;
   width: 100%;
   color: #fff;
+  min-height: 44px;
+  margin-top: 8px;
 }
 </style>
